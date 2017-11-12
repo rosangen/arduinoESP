@@ -693,11 +693,11 @@ void sendBurnerOff(){
     snprintf (sClean, 19, "%ld", smallCleanKg);
     snprintf (bClean, 19, "%ld", bigCleanKg);
     
-    strcat(json,"{ \"s-cleankg\": ");
+    strcat(json,"{ \"s_cleankg\": ");
     strcat(json,sClean);
-    strcat(json,", \"b-cleankg\": ");
+    strcat(json,", \"b_cleankg\": ");
     strcat(json,bClean);
-    strcat(json," }");        //  json sample:  { "s-cleankg": 1230, "b-cleankg": 458013 }
+    strcat(json," }");        //  json sample:  { "s_cleankg": 1230, "b_cleankg": 458013 }
     if ( client.publish("home/sensor1/clean",json) );
   }
 }
