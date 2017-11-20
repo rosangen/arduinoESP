@@ -68,7 +68,7 @@ unsigned long liveTime;
 unsigned long mqttReconnetTryeTime;
 int sendTempState = 0;
 int sensorCount = 0;
-float outTemp = 9999;
+float outTemp = 9999,feedTemp,returnTemp;
 Ticker led3Blink;
 
 // Setup a oneWire instance to communicate with any OneWire devices (not just Maxim/Dallas temperature ICs)
@@ -713,6 +713,7 @@ void sendTemp(){
     sensors.setWaitForConversion(false);  // makes it async
     sensors.requestTemperatures(); // Send the command to get temperatures
     outTemp = 9999;
+    feedTemp = 0; returnTemp = 0;
     sendTempState++;
   } else if ( sendTempState == 1 ) {
     if (!sensors.getAddress(sensorAddress, sensorCount)) {
@@ -753,6 +754,21 @@ void sendTemp(){
     if ( strcmp(topic, "home/sensor1/28ff248334036") == 0 ) {
       outTemp = (float)sensors.getTempCByIndex(sensorCount);
     }
+
+    if ( strcmp(topic, "home/sensor1/28311665005a") == 0 ) {
+      feedTemp = (float)sensors.getTempCByIndex(sensorCount);
+    }
+    if ( strcmp(topic, "home/sensor1/28bd8334500a5") == 0 ) {
+      returnTemp = (float)sensors.getTempCByIndex(sensorCount);
+    }
+    if ( feedTemp > 0 && returnTemp > 0 ) {
+      char msg[20];
+      snprintf (msg, 19, "%ld", int((feedTemp - returnTemp)*100) );
+      client.publish("home/sensor1/feedreturn", msg);
+      feedTemp = 0; returnTemp = 0;
+    }
+
+        
     sensorCount++;    
   } else if ( sendTempState == 2 ) {
     //Send data to temperatur.nu then rigth sensor is selected. 
@@ -915,7 +931,7 @@ void startPulseCount() {
 }
 
 void ledBlink(){
-  digitalWrite( led2 , !digitalRead(led2) );
+  digitalWrite( led3 , !digitalRead(led3) );
 }
 
 
@@ -1011,11 +1027,8 @@ void setup() {
 
   loadAllValues();    //From EEPROM
  
-  smallCleanTurn  = 16321;  
-  bigCleanTurn    = 16321; 
- 
   pinMode(LED_BUILTIN, OUTPUT);
-  pinMode(led2, OUTPUT);
+  pinMode(led3, OUTPUT);
 
   pinMode(turnPin, INPUT_PULLUP);
   pinMode(blinkPin, INPUT);
