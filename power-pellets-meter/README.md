@@ -1,5 +1,7 @@
 # Power Pellets Meter
 
+![](https://github.com/rosangen/arduinoESP/raw/master/power-pellets-meter/burner.png?raw=true "Screen dump")
+
 Arduino ESP based system to work with Home Assistant or other MQTT aware system. Basic features are:
 
 * Temperatur logging
