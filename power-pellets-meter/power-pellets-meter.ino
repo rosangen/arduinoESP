@@ -297,6 +297,7 @@ void webserver() {
   saveTurnValues();
   printTurnValues();
   sendMQTTInfo();
+  sendCleanValues();
 }
 
 void sendMQTTInfo () {
@@ -583,8 +584,13 @@ void sendTurned() {
   Serial.print("\nTurn: ");
   Serial.print(turns);      
   char msg[20];
+  long timeSinsLastTurn = millis() - timeTurne ;
+  timeTurne = millis();
+
+  // $kw =          (($used_g/1000) * 4.85)  / ($time /60);
+  int burner_watt = (( (float)gramTurn/1000 * 4.85 ) / ( (float)timeSinsLastTurn/1000/60/60 ) * 1000 );   // = kg*4,85 / h = w
   
-  if ( nowMill - timeTurne < startTimeDelay * 60*1000 && burnerOn == false ){   // startTimeDelay in seconds
+  if ( burner_watt > 8000 && burner_watt < 30000 &&  burnerOn == false ) {
     if ( client.publish("home/sensor1/burnerOn","1") ) {
       Serial.print("\nBurner on sent!");
       burnerOn = true;
@@ -602,19 +608,15 @@ void sendTurned() {
       client.publish("home/sensor1/baghome", msg );
     }
   }
-  
-  long timeSinsLastTurn = millis() - timeTurne ;
-  
-  timeTurne = millis();
 
-  // $kw =          (($used_g/1000) * 4.85)  / ($time /60);
-  int burner_watt = (( (float)gramTurn/1000 * 4.85 ) / ( (float)timeSinsLastTurn/1000/60/60 ) * 1000 );   // = kg*4,85 / h = w
-
-  
+  if ( burner_watt < 8000 &&  burnerOn == true ) { 
+    Serial.print("\nBurner off!");
+    sendBurnerOff();
+  }
   
   storageGram = storageGram - gramTurn;
   gramToday = gramToday + gramTurn;
-  
+
   Serial.print(" timeSinsLastTurn: ");
   Serial.print(timeSinsLastTurn);
   Serial.print(" burner_watt: ");
@@ -647,6 +649,11 @@ void sendTurned() {
     Serial.print(" Save to EEPROM ");
     saveTurnValues();
   }
+
+  if ( turns % 100 == 0 ) {
+    sendCleanValues();
+  }
+
 }
 
 void sendBrunerBagDayConsume() {
@@ -683,23 +690,28 @@ void sendBurnerOff(){
     saveTurnValues();
     burnerOn = false;
     client.publish("home/sensor1/burnerkw", "0");
-    
-    int smallCleanKg = (( turns - smallCleanTurn ) * gramTurn ) / 1000;
-    int bigCleanKg   = (( turns - bigCleanTurn ) * gramTurn ) / 1000;
-
-    char sClean[20] = {0};
-    char bClean[20] = {0};
-    char json[100] = {0};
-    snprintf (sClean, 19, "%ld", smallCleanKg);
-    snprintf (bClean, 19, "%ld", bigCleanKg);
-    
-    strcat(json,"{ \"s_cleankg\": ");
-    strcat(json,sClean);
-    strcat(json,", \"b_cleankg\": ");
-    strcat(json,bClean);
-    strcat(json," }");        //  json sample:  { "s_cleankg": 1230, "b_cleankg": 458013 }
-    if ( client.publish("home/sensor1/clean",json) );
+    sendCleanValues();
   }
+}
+
+void sendCleanValues() {
+  int smallCleanKg = (( turns - smallCleanTurn ) * gramTurn ) / 1000;
+  int bigCleanKg   = (( turns - bigCleanTurn ) * gramTurn ) / 1000;
+
+  char sClean[20] = {0};
+  char bClean[20] = {0};
+  char json[100] = {0};
+  snprintf (sClean, 19, "%ld", smallCleanKg);
+  snprintf (bClean, 19, "%ld", bigCleanKg);
+  
+  strcat(json,"{ \"s_cleankg\": ");
+  strcat(json,sClean);
+  strcat(json,", \"b_cleankg\": ");
+  strcat(json,bClean);
+  strcat(json," }");        //  json sample:  { "s_cleankg": 1230, "b_cleankg": 458013 }
+  client.publish("home/sensor1/clean",json);
+
+  Serial.println(" Clean value sent. ");
 }
 
 
@@ -745,10 +757,10 @@ void sendTemp(){
     Serial.print("/");
     Serial.print(msg);
 
-    if ( !client.publish(topic, msg) ) {
-      Serial.print(" Error! ");
-    } else {
-      //Serial.print(" ok ");
+    if ( tempCint > -3000 && tempCint < 10000  ) {
+      if ( !client.publish(topic, msg) ) {
+        Serial.print(" Error! ");
+      }
     }
 
     if ( strcmp(topic, "home/sensor1/28ff248334036") == 0 ) {
